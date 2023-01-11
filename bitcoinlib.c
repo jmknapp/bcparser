@@ -745,7 +745,7 @@ struct transaction *txlookup(char *hashstring) {
     }
     debug_print("TXLOOKUP %s\n", hashstring) ;
 
-    if (mysql_real_connect(con, "localhost", "bitcoin", "P_314159_i", "crypto", 0, NULL, 0) == NULL) {
+    if (mysql_real_connect(con, SQLHOST, SQLUSER, SQLPASS, SQLDB, 0, NULL, 0) == NULL) {
       finish_with_error(con);
     }
 
@@ -797,7 +797,7 @@ struct transaction *txlookup(char *hashstring) {
     tx.blocknum = txrec.blocknum ;
     tx.txnum = txrec.txnum ;
 
-    sprintf(query,"SELECT timestamp FROM crypto.blocktimestamps where blockfilenum=%d and blocknum=%d", txrec.blockfilenum, txrec.blocknum) ;
+    sprintf(query,"SELECT timestamp FROM %s.blocktimestamps where blockfilenum=%d and blocknum=%d", SQLDB, txrec.blockfilenum, txrec.blocknum) ;
     debug_print("%s\n", query) ;
     if (mysql_query(con, query)) {
       finish_with_error(con);
@@ -826,54 +826,55 @@ struct transaction *txlookup(char *hashstring) {
     return(&tx) ;
 }
 
-bool txpeek(char *hashstring) {
-    char hash[HASHLEN] ;
+bool tx_in_hexdb(struct txindexrecord *tx) {
     char hex1[3], hex2[3] ;
     char *tag ;
     char txhexfile[MAXFILEPATH] ;
     FILE *hexfd ;
     int nread ;
     struct txindexrecord txrec ;
-    MYSQL *con = mysql_init(NULL);
-    char query[MAXQUERY] ;
+    int hexsize ;
+    int nrecs ;
+    int i ;
 
-    if (con == NULL) {
-        fprintf(stderr, "mysql_init() failed\n");
-        exit(1);
-    }
+    return false ;
 
-    if (mysql_real_connect(con, "localhost", "bitcoin", "P_314159_i", "crypto", 0, NULL, 0) == NULL) {
-      finish_with_error(con);
-    }
-
-    str2buf(hashstring, hash) ;
-
-    tag = bufstr(hash+31, 1, false);
+    tag = bufstr(tx->hash+31, 1, false);
     strcpy(hex1,tag) ;
-    tag = bufstr(hash+30, 1, false);
+    tag = bufstr(tx->hash+30, 1, false);
     strcpy(hex2,tag) ;
     sprintf(txhexfile, "%s/%s/%s/%s%s.dat", TXHEXDIR, hex1, hex2, hex1, hex2) ;
 
     hexfd = fopen(txhexfile, "r") ;
     if (hexfd == NULL) {
 	//fprintf(stderr, "error: can't open %s for reading\n", txhexfile) ;
-	mysql_close(con) ;
 	return false ;
     }
 
-    nread = fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
-    while (nread > 0) {
-	if (memcmp(hash, txrec.hash, HASHLEN) == 0) {
+    fseek(hexfd, 0, SEEK_END) ;
+    hexsize = ftell(hexfd) ;
+    if (hexsize % sizeof(struct txindexrecord) != 0) {
+	fprintf(stderr, "TXPEEK: error: hex db file size %d not an even number of txindexrecords\n", hexsize) ;
+	exit(1) ;
+    }
+    nrecs = hexsize/sizeof(struct txindexrecord) ;
+    debug_print("hexdb file %s has %d recs\n", txhexfile, nrecs) ;
+
+    // scan tx records in file in reverse order (faster for recent txs)
+    fseek(hexfd, -sizeof(struct txindexrecord), SEEK_END) ;
+    for (i = 0 ; i < nrecs ; i++) {
+        fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
+	//fprintf(stderr,"%u %u\n", txrec.blockfilenum, txrec.blocknum) ;
+	if (memcmp(tx->hash, txrec.hash, HASHLEN) == 0) {
             fclose(hexfd) ;
-            mysql_close(con) ;
+//exit(1) ;
 	    return true ;
 	}
 	else
-            nread = fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
+            fseek(hexfd, -2*sizeof(struct txindexrecord), SEEK_CUR) ;
     }
 
     fclose(hexfd) ;
-    mysql_close(con) ;
     return false ;
 }
 
@@ -1014,7 +1015,7 @@ double btcquote(time_t utime) {
         exit(1);
     }
 
-    if (mysql_real_connect(con, "localhost", "bitcoin", "P_314159_i", "crypto", 0, NULL, 0) == NULL) {
+    if (mysql_real_connect(con, SQLHOST, SQLUSER, SQLPASS, SQLDB, 0, NULL, 0) == NULL) {
       finish_with_error(con);
     }
 

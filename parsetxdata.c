@@ -42,8 +42,8 @@ int main(int argc, char **argv) {
 	strcpy(txhashstr, bufstr(txrec.hash, HASHLEN, true)) ;
 
 	// only process this tx if not already in the database
-	if (txpeek(txhashstr) == false) {
-	    debug_print("hash: %s FALSE\n", txhashstr) ;
+	if (tx_in_hexdb(&txrec) == false) {
+	    //fprintf(stderr, "hash: %s FALSE\n", txhashstr) ;
 
 	    tag = bufstr(txrec.hash+31, 1, false);
 	    strcpy(hex1,tag) ;
@@ -53,6 +53,7 @@ int main(int argc, char **argv) {
 	    debug_print("%s %s %s\n", bufstr(txrec.hash, HASHLEN, true), hex1, hex2) ;
 	    debug_print("HEX %s\n", txhexfile) ;
 
+#if 1
             txhexfd = fopen(txhexfile, "a") ;
             if (txhexfd == NULL) {
                 fprintf(stderr,"error: can't open %s for writing\n", txhexfile) ;
@@ -61,7 +62,10 @@ int main(int argc, char **argv) {
             debug_print("opened txhexfile %s for writing\n", txhexfile) ;
 	    fwrite(&txrec, sizeof(struct txindexrecord), 1, txhexfd) ;
 	    fclose(txhexfd) ;
+#endif
 	}
+	//else
+	   //fprintf(stderr, "%s already in db\n", txhashstr) ;
 
         nread = fread(&txrec, sizeof(struct txindexrecord), 1, txdatafd) ;
     }

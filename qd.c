@@ -4,79 +4,104 @@
 #include <string.h>
 #include <byteswap.h>
 #include <time.h>
-#include <mysql.h>
 #include "bitcoin.h"
 
 int main(int argc, char **argv) {
-    uint64_t satoshis, totalsatoshis ;
-    uint32_t foo ;
-    uint8_t foo8 ;
-    uint16_t foo16 ;
-    FILE* blockfd ;
-    char blkfile[80] ;
-    char buf[1000000] ;
-    time_t utime ;
-    char hash[65] ;
-    struct block *blk ;
+    FILE *txdatafd, *txhexfd ;
+    char hash[HASHLEN] ;
     int i, j, k ;
-    int blockfilenum ;
     int ntrans ;
-    int nptrs ;
-    double ts ;
     char txdatafile[MAXFILEPATH] ;
-    FILE *txdatafd ;
+    char txhexfile[MAXFILEPATH] ;
     struct txindexrecord txrec ;
+    uint32_t txoffsets[1000000] ;
+    int txdatafilenumber ;
+    int nread, nread2 ;
+    int ntx ;
+    char hex1[3], hex2[3] ;
+    char *tag ;
+    char buf[1000000] ;
+    int buflen ;
+    char txhashstr[HASHSTRLEN] ;
+    long fsize = 0;
 
     if (argc != 2) {
-	fprintf(stderr,"usage: %s <blockfile number>\n", argv[0]) ;
+	fprintf(stderr,"usage: %s <txdatafile number>\n", argv[0]) ;
 	exit(1) ;
     }
-    blockfilenum = atoi(argv[1]) ;
-    sprintf(blkfile, "%s/blk%05d.dat", BLOCKDIR, blockfilenum) ;
+    txdatafilenumber = atoi(argv[1]) ;
+    sprintf(txdatafile, "%s/%04d.dat", TXDATADIR, txdatafilenumber) ;
 
-    blockfd = fopen(blkfile, "r") ;
+    txdatafd = fopen(txdatafile, "r") ;
 
-    if (blockfd == NULL) {
-        fprintf(stderr,"error: can't open %s for reading\n",blkfile) ;
+    if (txdatafd == NULL) {
+        fprintf(stderr,"error: can't open %s for reading\n", txdatafile) ;
         exit(1) ;
     }
+    fprintf(stderr, "opened txdatafile %s for reading\n", txdatafile) ;
 
     i = 0 ;
-    blk = nextblock(blockfd, blockfilenum, i) ;
-    ntrans = 0 ;
-    totalsatoshis = 0 ;
-    while (blk != NULL) {
-        satoshis = 0 ;
-	ntrans += blk->transactionCounter ;
+    nread = fread(&txrec, sizeof(struct txindexrecord), 1, txdatafd) ;
+    while (nread > 0) {
+	strcpy(txhashstr, bufstr(txrec.hash, HASHLEN, true)) ;
 
-	for (j = 0 ; j < blk->transactionCounter ; j++) {
-	    char cmd[1000] ;
-	    //fprintf(stderr, "****************************************************************************\n") ;
-	    //fprintf(stderr, "printing TX %d\n", j) ;
+	// only process this tx if not already in the database
+	if (tx_in_hexdb(&txrec) == false) {
+	    //fprintf(stderr, "hash: %s FALSE\n", txhashstr) ;
 
-	    //sprintf(cmd, "/hyper/.bitcoin/txlookup %s", bufstr(blk->transactions[j].hash, HASHLEN, true)) ;
-	    //fprintf(stderr, "FOO %s\n", cmd) ;
-	    //system(cmd) ;
-	    printtx(&blk->transactions[j]) ;
-	    //mrollback() ;
-	    for (k = 0 ; k < blk->transactions[j].outcounter ; k++) {
-		totalsatoshis += blk->transactions[j].xoutputs[k].satoshis ;
-		satoshis += blk->transactions[j].xoutputs[k].satoshis ;
+	    tag = bufstr(txrec.hash+31, 1, false);
+	    strcpy(hex1,tag) ;
+	    tag = bufstr(txrec.hash+30, 1, false);
+	    strcpy(hex2,tag) ;
+            sprintf(txhexfile, "%s/%s/%s/%s%s.dat", TXHEXDIR, hex1, hex2, hex1, hex2) ;
+	    debug_print("%s %s %s\n", bufstr(txrec.hash, HASHLEN, true), hex1, hex2) ;
+	    debug_print("HEX %s\n", txhexfile) ;
+
+#if 1
+            txhexfd = fopen(txhexfile, "r") ;
+            if (txhexfd == NULL) {
+                fprintf(stderr,"error: can't open %s for reading\n", txhexfile) ;
+		fsize = 0 ;
+            }
+	    else {
+                debug_print("opened txhexfile %s for reading\n", txhexfile) ;
+
+		ntx = 0 ;
+		nread2 = fread(&txrec, sizeof(struct txindexrecord), 1, txhexfd) ;
+		txoffsets[ntx] = ftell(txhexfd) ;
+		while (nread2 > 0) {
+		    nread2 = fread(&txrec, sizeof(struct txindexrecord), 1, txhexfd) ;
+		    ntx++ ;
+		    txoffsets[ntx] = ftell(txhexfd) ;
+		}
+
+                fseek(txhexfd, 0, SEEK_END);
+                fsize = ftell(txhexfd);
+                fclose(txhexfd);
 	    }
+
+            txhexfd = fopen(txhexfile, "w") ;
+            if (txhexfd == NULL) {
+                fprintf(stderr,"error: can't open %s for writing\n", txhexfile) ;
+                exit(1) ;
+            }
+            debug_print("opened txhexfile %s for writing\n", txhexfile) ;
+	    fwrite(&txrec, sizeof(struct txindexrecord), 1, txhexfd) ;
+
+	    if (fsize > 0) {
+	        for (j = ntx-1 ; j >= 0 ; j--) {
+                    fseek(txhexfd, txoffsets[j], SEEK_SET);
+	        }
+	    }
+	    fclose(txhexfd) ;
+#endif
 	}
+	//else
+	    //fprintf(stderr, "%d: %s already in db\n", i, txhashstr) ;
 
-	ts = (double)blk->blkhdr->timestamp/86400/365.25 + 1970 ;
-
-	// free the block
-	nptrs = mfree() ;
-	debug_print("freed %d pointers\n", nptrs) ;
-
-	// get next block
+        nread = fread(&txrec, sizeof(struct txindexrecord), 1, txdatafd) ;
 	i++ ;
-        blk = nextblock(blockfd, blockfilenum, i) ;
-
     }
-    debug_print("total transactions: %d, satoshis = %lu (%.6f BTC)\n", ntrans, totalsatoshis, (double)totalsatoshis/1e8) ;
 
-    fclose(blockfd) ;
+    fclose(txdatafd) ;
 }

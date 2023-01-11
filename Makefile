@@ -1,7 +1,7 @@
 HEADERS = bitcoin.h ansi.h ripemd160.h memzero.h script.h sha1.h
-LIBS = bitcoinlib.o bccryptolib.o process_script.o sha1.o
+LIBS = bitcoinlib.o bccryptolib.o process_script.o sha1.o 
 
-default: blkdmp foo nblocks parsetxdata dumphex txlookup qd whalescan btchist coinapidb txdump scripttest txlist
+default: blkdmp foo nblocks parsetxdata dumphex txlookup qd whalescan btchist coinapidb txdump scripttest txlist reversehexdb txhexfiles
 
 blkdmp.o: blkdmp.c $(HEADERS)
 	c99 -c blkdmp.c -o blkdmp.o -lcrypto -g `mysql_config --cflags --libs`
@@ -32,6 +32,12 @@ nblocks.o: nblocks.c $(HEADERS)
 
 parsetxdata.o: parsetxdata.c $(HEADERS)
 	c99 -c parsetxdata.c -o parsetxdata.o -g `mysql_config --cflags --libs`
+
+reversehexdb.o: reversehexdb.c $(HEADERS)
+	c99 -c reversehexdb.c -o reversehexdb.o -g `mysql_config --cflags --libs`
+
+txhexfiles.o: txhexfiles.c $(HEADERS)
+	c99 -c txhexfiles.c -o txhexfiles.o -g `mysql_config --cflags --libs`
 
 txlist.o: txlist.c $(HEADERS)
 	c99 -c txlist.c -o txlist.o -g `mysql_config --cflags --libs`
@@ -92,6 +98,12 @@ nblocks: nblocks.o bitcoinlib.o bccryptolib.o
 
 parsetxdata: parsetxdata.o  $(LIBS)
 	c99 parsetxdata.o $(LIBS) -o parsetxdata -lcrypto -g `mysql_config --cflags --libs`
+
+reversehexdb: reversehexdb.o  $(LIBS)
+	c99 reversehexdb.o $(LIBS) -o reversehexdb -lcrypto -g `mysql_config --cflags --libs`
+
+txhexfiles: txhexfiles.o  $(LIBS)
+	c99 txhexfiles.o $(LIBS) -o txhexfiles -lcrypto -g `mysql_config --cflags --libs`
 
 txlist: txlist.o $(LIBS)
 	c99 txlist.o $(LIBS) -o txlist -lcrypto -g `mysql_config --cflags --libs`

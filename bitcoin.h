@@ -1,11 +1,11 @@
 #define HOME "/hyper/.bitcoin"
 #define BLOCKDIR "/hyper/.bitcoin/blocks"
-//#define TXDATADIR "/hyper/.bitcoin/txdata"
-//#define TXHEXDIR "/hyper/.bitcoin/txhex"
-//#define TXINDEXDIR "/hyper/.bitcoin/txindex"
-#define TXDATADIR "/home/jmknapp/bcx2/txdata"
-#define TXHEXDIR "/home/jmknapp/bcx2/txhex"
-#define TXINDEXDIR "/home/jmknapp/bcx2/txindex"
+#define TXDATADIR "/hyper/.bitcoin/txdata"
+//#define TXDATADIR "/home/jmknapp/bcx4/txdata"
+#define TXINDEXDIR "/hyper/.bitcoin/txindex"
+#define TXHEXDIR "/hyper/.bitcoin/txhex.arch"
+//#define TXHEXDIR "/home/jmknapp/bcx4/txhex"
+
 
 #define HASHLEN 32
 #define SHA1LEN 20
@@ -32,6 +32,11 @@
 #define MAX58LEN 200
 #define MAXSCRIPT 1024
 #define MAXTIMELOCK 500000000
+
+#define SQLDB "crypto"
+#define SQLUSER "bitcoin"
+#define SQLPASS "sw0rdfish"
+#define SQLHOST "localhost"
 
 #define TIMESTAMPTZ "GMT0BST"
 
@@ -193,7 +198,7 @@ char *datestr(time_t t) ;
 int setenv() ;
 void tzset() ;
 void finish_with_error(MYSQL *con) ;
-bool txpeek(char *hashstring) ;
+bool tx_in_hexdb(struct txindexrecord *tx) ;
 double btcquote(time_t utime) ;
 bool process_script(struct xscript *script, struct transaction *tx, int inputnum, char *script_pattern) ;
 void print_scriptstack() ;

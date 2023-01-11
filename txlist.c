@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     int blockfilenum ;
     int ntrans ;
     int nptrs ;
-    char txdatafile[MAXFILEPATH] ;
+    //char txdatafile[MAXFILEPATH] ;
     FILE *txdatafd ;
 
     if (argc != 2) {
@@ -32,14 +32,14 @@ int main(int argc, char **argv) {
         exit(1) ;
     }
 
-    sprintf(txdatafile, "%s/%04d.dat", TXDATADIR, blockfilenum) ;
-    txdatafd = fopen(txdatafile, "w") ;
-    if (txdatafd == NULL) {
-	fprintf(stderr,"error: can't open txdatafile %s for writing\n", txdatafile) ;
-	exit(1) ;
-    }
+    //sprintf(txdatafile, "%s/%04d.dat", TXDATADIR, blockfilenum) ;
+    //txdatafd = fopen(txdatafile, "w") ;
+    //if (txdatafd == NULL) {
+	//fprintf(stderr,"error: can't open txdatafile %s for writing\n", txdatafile) ;
+	//exit(1) ;
+    //}
 
-    debug_print("blkdmp(): opened txdatafile %s for writing\n", txdatafile) ;
+    //debug_print("blkdmp(): opened txdatafile %s for writing\n", txdatafile) ;
     i = 0 ;
     blk = nextblock(blockfd, blockfilenum, i) ;
     ntrans = 0 ;

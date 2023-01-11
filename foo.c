@@ -15,8 +15,6 @@ int main(int argc, char **argv) {
     int i ;
     int blockfilenum ;
     int nptrs ;
-    char txdatafile[MAXFILEPATH] ;
-    FILE *txdatafd ;
     MYSQL *con = mysql_init(NULL);
     MYSQL_RES *res, *res2 ;
     char query[MAXQUERY] ;
@@ -27,7 +25,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    if (mysql_real_connect(con, "localhost", "bitcoin", "P_314159_i", "crypto", 0, NULL, 0) == NULL) {
+    if (mysql_real_connect(con, SQLHOST, SQLUSER, SQLPASS, SQLDB, 0, NULL, 0) == NULL) {
       finish_with_error(con);
     }
 
@@ -45,14 +43,6 @@ int main(int argc, char **argv) {
         exit(1) ;
     }
 
-    sprintf(txdatafile, "%s/%04d.dat", TXDATADIR, blockfilenum) ;
-    txdatafd = fopen(txdatafile, "w") ;
-    if (txdatafd == NULL) {
-	fprintf(stderr,"error: can't open txdatafile %s for writing\n", txdatafile) ;
-	exit(1) ;
-    }
-
-    debug_print("blkdmp(): opened txdatafile %s for writing\n", txdatafile) ;
     i = 0 ;
     blk = nextblock(blockfd, blockfilenum, i) ;
     while (blk != NULL) {

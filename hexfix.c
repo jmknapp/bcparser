@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 	strcpy(txhashstr, bufstr(txrec.hash, HASHLEN, true)) ;
 
 	// only process this tx if not already in the database
-	if (txpeek(txhashstr) == false) {
+	if (tx_in_hexdb(&txrec) == false) {
 	    debug_print("hash: %s FALSE\n", txhashstr) ;
 
 	    tag = bufstr(txrec.hash+31, 1, false);
