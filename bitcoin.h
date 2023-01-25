@@ -3,7 +3,7 @@
 #define TXDATADIR "/hyper/.bitcoin/txdata"
 //#define TXDATADIR "/home/jmknapp/bcx4/txdata"
 #define TXINDEXDIR "/hyper/.bitcoin/txindex"
-#define TXHEXDIR "/hyper/.bitcoin/txhex.arch"
+#define TXHEXDIR "/hyper/.bitcoin/txhex"
 //#define TXHEXDIR "/home/jmknapp/bcx4/txhex"
 
 
@@ -214,3 +214,4 @@ void altspush(struct scriptstackitem *item) ;
 bool altspop(struct scriptstackitem *item) ;
 struct xscript *catscripts(struct xscript *s1, struct xscript *s2) ;
 void print_altscriptstack() ;
+long hextell(struct txindexrecord *txrec, FILE *hexfd) ;

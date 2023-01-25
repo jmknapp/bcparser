@@ -1,10 +1,15 @@
 HEADERS = bitcoin.h ansi.h ripemd160.h memzero.h script.h sha1.h
 LIBS = bitcoinlib.o bccryptolib.o process_script.o sha1.o 
+BINDIR = /usr/local/bin
+INSTALLFILES = blkdmp parsetxdata whalescan txlookup btchist txlist txhexlint blockscan
 
-default: blkdmp foo nblocks parsetxdata dumphex txlookup qd whalescan btchist coinapidb txdump scripttest txlist reversehexdb txhexfiles
+default: blkdmp foo nblocks parsetxdata dumphex txlookup qd whalescan btchist coinapidb txdump scripttest txlist reversehexdb txhexfiles txswarm txhexlint blockscan
 
 blkdmp.o: blkdmp.c $(HEADERS)
 	c99 -c blkdmp.c -o blkdmp.o -lcrypto -g `mysql_config --cflags --libs`
+
+blockscan.o: blockscan.c $(HEADERS)
+	c99 -c blockscan.c -o blockscan.o -lcrypto -g `mysql_config --cflags --libs`
 
 foo.o: foo.c $(HEADERS)
 	c99 -c foo.c -o foo.o -lcrypto -g `mysql_config --cflags --libs`
@@ -36,11 +41,17 @@ parsetxdata.o: parsetxdata.c $(HEADERS)
 reversehexdb.o: reversehexdb.c $(HEADERS)
 	c99 -c reversehexdb.c -o reversehexdb.o -g `mysql_config --cflags --libs`
 
+txhexlint.o: txhexlint.c $(HEADERS)
+	c99 -c txhexlint.c -o txhexlint.o -g `mysql_config --cflags --libs`
+
 txhexfiles.o: txhexfiles.c $(HEADERS)
 	c99 -c txhexfiles.c -o txhexfiles.o -g `mysql_config --cflags --libs`
 
 txlist.o: txlist.c $(HEADERS)
 	c99 -c txlist.c -o txlist.o -g `mysql_config --cflags --libs`
+
+txswarm.o: txswarm.c $(HEADERS)
+	c99 -c txswarm.c -o txswarm.o -g `mysql_config --cflags --libs`
 
 dumphex.o: dumphex.c $(HEADERS)
 	c99 -c dumphex.c -o dumphex.o -g `mysql_config --cflags --libs`
@@ -71,6 +82,9 @@ txlookup.o: txlookup.c $(HEADERS)
 
 blkdmp: blkdmp.o $(LIBS)
 	c99 blkdmp.o $(LIBS) -o blkdmp -lcrypto -g `mysql_config --cflags --libs`
+
+blockscan: blockscan.o $(LIBS)
+	c99 blockscan.o $(LIBS) -o blockscan -lcrypto -g `mysql_config --cflags --libs`
 
 foo: foo.o $(LIBS)
 	c99 foo.o $(LIBS) -o foo -lcrypto -g `mysql_config --cflags --libs`
@@ -105,8 +119,14 @@ reversehexdb: reversehexdb.o  $(LIBS)
 txhexfiles: txhexfiles.o  $(LIBS)
 	c99 txhexfiles.o $(LIBS) -o txhexfiles -lcrypto -g `mysql_config --cflags --libs`
 
+txhexlint: txhexlint.o  $(LIBS)
+	c99 txhexlint.o $(LIBS) -o txhexlint -lcrypto -g `mysql_config --cflags --libs`
+
 txlist: txlist.o $(LIBS)
 	c99 txlist.o $(LIBS) -o txlist -lcrypto -g `mysql_config --cflags --libs`
+
+txswarm: txswarm.o $(LIBS)
+	c99 txswarm.o $(LIBS) -o txswarm -lcrypto -g `mysql_config --cflags --libs`
 
 dumphex: dumphex.o dumphex.o bitcoinlib.o bccryptolib.o
 	c99 dumphex.o $(LIBS) -o dumphex -lcrypto -g `mysql_config --cflags --libs`
@@ -114,11 +134,18 @@ dumphex: dumphex.o dumphex.o bitcoinlib.o bccryptolib.o
 txlookup: txlookup.o txlookup.o bccryptolib.o process_script.o $(LIBS)
 	gcc txlookup.o $(LIBS) -o txlookup -lcrypto -g `mysql_config --cflags --libs`
 
+.PHONY: install
+install:
+	cp $(INSTALLFILES) $(BINDIR)
+
+
 clean:
 	-rm -f parsetxdata.o
 	-rm -f parsetxdata
 	-rm -f blkdmp.o
 	-rm -f blkdmp
+	-rm -f blockscan.o
+	-rm -f blockscan
 	-rm -f dumphex.o
 	-rm -f dumphex
 	-rm -f txlookup.o
@@ -149,5 +176,15 @@ clean:
 	-rm -f scripttest
 	-rm -f sha1.o
 	-rm -f sha1
+	-rm -f reversehexdb.o
+	-rm -f reversehexdb
+	-rm -f txhexfiles.o
+	-rm -f txhexfiles
+	-rm -f txhexlint.o
+	-rm -f txhexlint
+	-rm -f txswarm.o
+	-rm -f txswarm
 	-rm -f txlist.o
 	-rm -f txlist
+	-rm -f txswarm.o
+	-rm -f swarm

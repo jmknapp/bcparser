@@ -447,9 +447,11 @@ bool mpop() {
 
 int mfree() {
     int i = 0 ;
-    if (mstack.fptr >= 0)
+    if (mstack.fptr >= 0) {
+        printf("freeing %d mallocs\n", mstack.fptr) ; 
         while(mpop()) 
             i++ ;
+    }
     mstack.savefptr = -1 ;
     return i ;
 }
@@ -762,7 +764,7 @@ struct transaction *txlookup(char *hashstring) {
 	fprintf(stderr, "error: can't open %s for reading\n", txhexfile) ;
 	exit(1) ;
     }
-    fprintf(stderr, "opened txhex index file %s\n", txhexfile) ;
+    //fprintf(stderr, "opened txhex index file %s\n", txhexfile) ;
 
     nread = fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
     while (nread > 0 && !found) {
@@ -774,7 +776,7 @@ struct transaction *txlookup(char *hashstring) {
     }
 
     if (!found) {
-	fprintf(stderr, "error: couldn't find tx %s\n", hashstring) ;
+	//fprintf(stderr, "error: couldn't find tx %s\n", hashstring) ;
 	fclose(hexfd) ;
 	mysql_close(con) ;
 	return((struct transaction *)NULL) ;
@@ -836,8 +838,9 @@ bool tx_in_hexdb(struct txindexrecord *tx) {
     int hexsize ;
     int nrecs ;
     int i ;
+    long offset ;
 
-    return false ;
+    //return false ;
 
     tag = bufstr(tx->hash+31, 1, false);
     strcpy(hex1,tag) ;
@@ -858,20 +861,20 @@ bool tx_in_hexdb(struct txindexrecord *tx) {
 	exit(1) ;
     }
     nrecs = hexsize/sizeof(struct txindexrecord) ;
-    debug_print("hexdb file %s has %d recs\n", txhexfile, nrecs) ;
+    //debug_print("hexdb file %s has %d recs\n", txhexfile, nrecs) ;
 
-    // scan tx records in file in reverse order (faster for recent txs)
-    fseek(hexfd, -sizeof(struct txindexrecord), SEEK_END) ;
-    for (i = 0 ; i < nrecs ; i++) {
-        fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
-	//fprintf(stderr,"%u %u\n", txrec.blockfilenum, txrec.blocknum) ;
+    offset = hextell(tx, hexfd) ;
+    fseek(hexfd, offset, SEEK_SET) ;
+    nread = fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
+    debug_print("at OFFSET %lu GOT blockfilenum=%d, blocknum=%d, hash=%s\n", offset, txrec.blockfilenum, txrec.blocknum, hashstr(txrec.hash)) ;
+    while (nread > 0 && txrec.blockfilenum <= tx->blockfilenum) {
+	debug_print("wanted %u %u, have %u %u\n", txrec.blockfilenum, txrec.blocknum, tx->blockfilenum, tx->blocknum) ;
 	if (memcmp(tx->hash, txrec.hash, HASHLEN) == 0) {
             fclose(hexfd) ;
-//exit(1) ;
 	    return true ;
 	}
 	else
-            fseek(hexfd, -2*sizeof(struct txindexrecord), SEEK_CUR) ;
+            nread = fread(&txrec, sizeof(struct txindexrecord), 1, hexfd) ;
     }
 
     fclose(hexfd) ;
@@ -1075,11 +1078,16 @@ struct txoutput *txo_query(char *hashstr, uint16_t outindex) {
 
     debug_print("TXOUTPUT tx %s, output %d\n", hashstr, outindex) ;
     tx = txlookup(hashstr) ;
-    debug_print("TXOUTPUT pkh=%s, satoshis=%lu (%.6f BTC)\n", bufstr(tx->hash, HASHLEN, true), tx->xoutputs[outindex].satoshis, tx->xoutputs[outindex].satoshis/SATOSHIS2BTC) ; 
-    strcpy(txo.txid, hashstr) ;
-    txo.satoshis = tx->xoutputs[outindex].satoshis ;
-    txo.outindex = outindex ;
-    txo.outscript = tx->xoutputs[outindex].script ;
+
+    if (tx != NULL) {
+        debug_print("TXOUTPUT pkh=%s, satoshis=%lu (%.6f BTC)\n", bufstr(tx->hash, HASHLEN, true), tx->xoutputs[outindex].satoshis, tx->xoutputs[outindex].satoshis/SATOSHIS2BTC) ; 
+        strcpy(txo.txid, hashstr) ;
+        txo.satoshis = tx->xoutputs[outindex].satoshis ;
+        txo.outindex = outindex ;
+        txo.outscript = tx->xoutputs[outindex].script ;
+    }
+    else
+	return NULL ;
 
     return &txo ;
 }
@@ -1191,4 +1199,82 @@ struct xscript *catscripts(struct xscript *s1, struct xscript *s2) {
     memcpy(script.code+s1->len, s2->code, s2->len) ;
     mpush(script.code) ;
     return &script ;
+}
+
+// return file offset to the given blockfilenum (in txrec) in the hex fd file\n
+long hextell(struct txindexrecord *txrec, FILE *hexfd) {
+    long ftell0 ;
+    long ftellend ;
+    int reclow, rechigh, reccurr ;
+    uint32_t nrecs ;
+    int offset ;
+    bool found = false ;
+    struct txindexrecord tx ;
+    int i = 0;
+    int backoffset ;
+
+    ftell0 = ftell(hexfd) ;
+    fseek(hexfd, 0, SEEK_END) ;
+    ftellend = ftell(hexfd) ;
+
+    if (ftellend % sizeof(struct txindexrecord) != 0) {
+	fprintf(stderr,"HEXTELL: error: hex db file length %lu not even multiple of sizeof(struct txindexrecord)\n", ftellend) ;
+	exit(1) ;
+    }
+
+    nrecs = ftellend/sizeof(struct txindexrecord) ;
+    debug_print( "file size=%lu, nrecs=%d\n", ftell0, nrecs) ;
+
+    reclow = 0 ;
+    rechigh = nrecs ;
+
+    debug_print("===============%s===================\n", "HEXTELL") ;
+    while (rechigh - reclow > 1) {
+        reccurr = reclow + (rechigh-reclow)/2 ;  // binary search
+        offset = reccurr*sizeof(struct txindexrecord) ;
+	debug_print("---------------%d-------------------\n", i) ;
+	debug_print("looking for %d %d %s\n", txrec->blockfilenum, txrec->blocknum, hashstr(txrec->hash)) ;
+	debug_print("initial %d: %d->%d->%d, offset=%d\n", i, reclow, reccurr, rechigh, offset) ;
+	fseek(hexfd, offset, SEEK_SET) ;
+	fread(&tx, sizeof(struct txindexrecord), 1, hexfd) ;
+	debug_print("at %d got blockfilenum=%d, blocknum=%d (want %d, %d)\n", offset, tx.blockfilenum, tx.blocknum, txrec->blockfilenum, txrec->blocknum) ;
+
+	if (tx.blockfilenum < txrec->blockfilenum)
+            reclow = reccurr ;
+	else if (tx.blockfilenum > txrec->blockfilenum)
+	    rechigh = reccurr ;
+	else {
+	    debug_print("EQUAL %d\n",i) ;
+	    if (tx.blocknum < txrec->blocknum) 
+	        reclow = reccurr ;
+	    else if (tx.blocknum > txrec->blocknum)
+	        rechigh = reccurr ;
+	    else {
+#if 1
+		backoffset = 2*sizeof(struct txindexrecord) ;
+		while (tx.blockfilenum == txrec->blockfilenum && tx.blocknum == txrec->blocknum && ftell(hexfd) >= backoffset) {
+		    fseek(hexfd, -backoffset, SEEK_CUR) ;
+	            fread(&tx, sizeof(struct txindexrecord), 1, hexfd) ;
+		    debug_print("backing up to %d %d %s\n", tx.blockfilenum, tx.blocknum, hashstr(tx.hash)) ;
+		    reccurr-- ;
+		}
+		if (reccurr <= 0)
+		    reccurr = 0 ;
+		else
+		    reccurr++ ;
+#endif
+	        rechigh = reccurr ;
+	        reclow = reccurr ;
+            }
+	}
+	debug_print("%d: low=%d, high=%d, curr=%d, offset=%d\n", i, reclow, rechigh, reccurr, offset) ;
+	i++ ;
+    }
+    debug_print("***FINAL: blockfilenum=%d, blocknum=%d (want %d, %d)\n", tx.blockfilenum, tx.blocknum, txrec->blockfilenum, txrec->blocknum) ;
+
+    offset = reclow*sizeof(struct txindexrecord) ;
+    fseek(hexfd, ftell0, SEEK_SET) ;
+    debug_print("offset=%d\n", offset) ;
+//exit(1) ;
+    return offset ;
 }

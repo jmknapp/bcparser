@@ -16,6 +16,7 @@ bool process_script(struct xscript *script, struct transaction *tx, int inputnum
     uint16_t npush2 ;
     uint32_t npush4 ;
     bool doscriptpattern = true ;
+    bool scripterror = false ;
 
     debug_print("=========================\nprocessing script: %s, len=%d\n", bufstr(script->code, script->len, false), script->len) ;
 
@@ -40,7 +41,7 @@ bool process_script(struct xscript *script, struct transaction *tx, int inputnum
     scriptptr = 0 ;
     strcpy(scriptpattern, "") ;
 
-    while (scriptptr < script->len) {
+    while (!scripterror && scriptptr < script->len) {
         opcode = script->code[scriptptr] ;
         debug_print("opcode: %d (%x): %s\n", opcode, opcode, opcodestring(opcode)) ;
 
@@ -701,15 +702,18 @@ bool process_script(struct xscript *script, struct transaction *tx, int inputnum
                     break;
                 default:
 		    debug_print("PROCESS_SCRIPT: error: unknown opcode 0x%x\n", opcode) ;
-                    exit(1) ;
+		    scriptresult = false ;
+		    scripterror = true ;
             }
         }
 
+#if 0
         if (scriptresult == false) {
             //free(script->code) ;
             sfree() ;
-            return false ;
+            return scriptresult ;
         }
+#endif
 
         scriptptr++ ;  // poin to next opcode
     }
@@ -721,13 +725,13 @@ bool process_script(struct xscript *script, struct transaction *tx, int inputnum
 char *opcodestring(uint8_t opcode) {
     static char opstr[10000] ;
     if (opcode > 0 && opcode <= 75) {
-        strcpy(opstr, "OP_DATA") ;
+        sprintf(opstr, "OP_DATA%02d", opcode) ;
 	return opstr;
     }
 
     switch (opcode) {
         case OP_DATA:
-            strcpy(opstr, "OP_DATA") ;
+            sprintf(opstr, "OP_DATA%02d", opcode) ;
             break;
         case OP_OPCODE:
             strcpy(opstr, "OP_OPCODE") ;

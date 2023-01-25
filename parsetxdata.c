@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
 	// only process this tx if not already in the database
 	if (tx_in_hexdb(&txrec) == false) {
-	    //fprintf(stderr, "hash: %s FALSE\n", txhashstr) ;
+	    fprintf(stderr, "hash: %s %d %d FALSE\n", txhashstr, txrec.blockfilenum, txrec.blocknum) ;
 
 	    tag = bufstr(txrec.hash+31, 1, false);
 	    strcpy(hex1,tag) ;
